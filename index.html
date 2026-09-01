@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Side Quest Log :: XP Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+     ============================================================ */
+  :root{
+    --void: #0A0A0C;
+    --panel: #121218;
+    --panel-raised: #191922;
+    --border: #232330;
+    --violet: #8B5CF6;
+    --violet-soft: rgba(139, 92, 246, 0.16);
+    --violet-glow: rgba(139, 92, 246, 0.45);
+    --cyan: #06B6D4;
+    --cyan-soft: rgba(6, 182, 212, 0.14);
+    --cyan-glow: rgba(6, 182, 212, 0.45);
+    --gold: #F59E0B;
+    --gold-soft: rgba(245, 158, 11, 0.14);
+    --gold-glow: rgba(245, 158, 11, 0.5);
+    --text: #E7E7EC;
+    --text-dim: #85859A;
+    --text-faint: #4B4B5C;
+    --font-display: 'Orbitron', sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
+    --radius: 3px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  ::selection{ background: var(--violet-glow); color: #fff; }
+
+  body{
+    margin: 0;
+    min-height: 100vh;
+    background: var(--void);
+    color: var(--text);
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* subtle CRT scanline atmosphere behind everything */
+  body::before{
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.015) 0px,
+      rgba(255,255,255,0.015) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: overlay;
+  }
+
+  body::after{
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 998;
+    background: radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.08), transparent 60%);
+  }
+
+  a{ color: inherit; }
+
+  h1, h2, h3{ font-family: var(--font-display); margin: 0; letter-spacing: 0.04em; }
+
+  .wrap{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .eyebrow{
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin: 0 0 6px;
+  }
+
+  /* ============================================================
+     HEADER / CHARACTER PROFILE
+     ============================================================ */
+  .profile{
+    background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px 26px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile::before{
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--violet), var(--cyan), var(--gold));
+  }
+
+  .profile-top{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+
+  .player-id h1{
+    font-size: 26px;
+    color: #fff;
+    text-shadow: 0 0 18px var(--violet-glow);
+  }
+
+  .player-id .sub{
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  .level-badge{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--void);
+    border: 1px solid var(--violet);
+    border-radius: 50%;
+    width: 78px;
+    height: 78px;
+    justify-content: center;
+    flex-direction: column;
+    box-shadow: 0 0 22px var(--violet-glow), inset 0 0 12px rgba(139,92,246,0.15);
+  }
+
+  .level-badge .lv-label{ font-size: 9px; color: var(--text-dim); letter-spacing: 0.2em; }
+  .level-badge .lv-num{ font-family: var(--font-display); font-size: 24px; color: #fff; line-height: 1; }
+
+  .xp-block{ margin-bottom: 22px; }
+
+  .xp-labels{
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    letter-spacing: 0.05em;
+  }
+
+  .xp-labels .total{ color: var(--cyan); }
+
+  .xp-track{
+    height: 14px;
+    background: var(--void);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .xp-fill{
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #0891a3, var(--cyan));
+    box-shadow: 0 0 14px var(--cyan-glow);
+    transition: width 0.8s cubic-bezier(.2,.8,.2,1);
+    position: relative;
+  }
+
+  .xp-fill::after{
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      110deg, transparent 0 8px, rgba(255,255,255,0.12) 8px 9px
+    );
+  }
+
+  /* stat matrix: radar chart + numeric readout, the signature element */
+  .stat-matrix{
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+
+  .radar-holder{
+    display: flex;
+    justify-content: center;
+  }
+
+  .radar-holder svg{ overflow: visible; }
+
+  .stat-list{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .stat-row{
+    background: var(--void);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+  }
+
+  .stat-row .stat-name{
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .stat-row .stat-name b{ color: var(--text); font-weight: normal; }
+
+  .stat-bar{
+    margin-top: 6px;
+    height: 5px;
+    background: #1c1c26;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .stat-bar i{
+    display: block;
+    height: 100%;
+    background: var(--violet);
+    box-shadow: 0 0 8px var(--violet-glow);
+    transition: width 0.6s ease;
+  }
+
+  /* ============================================================
+     PANELS (generator / logger / log / achievements)
+     ============================================================ */
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-top: 20px;
+  }
+
+  .panel-head{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .panel-head h2{ font-size: 15px; color: #fff; }
+
+  .streak-pill{
+    font-size: 11px;
+    color: var(--gold);
+    border: 1px solid var(--gold-soft);
+    background: var(--gold-soft);
+    padding: 5px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  /* generator */
+  .gen-row{ display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+  .quest-card{
+    margin-top: 14px;
+    padding: 16px;
+    background: var(--void);
+    border: 1px dashed var(--violet);
+    border-radius: var(--radius);
+    display: none;
+  }
+
+  .quest-card.show{ display: block; }
+
+  .quest-card .qc-tag{
+    font-size: 10px;
+    color: var(--violet);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .quest-card .qc-text{ font-size: 15px; color: var(--text); font-family: var(--font-mono); }
+
+  /* buttons + form fields */
+  .btn{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--violet);
+    color: var(--violet);
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+
+  .btn:hover{ background: var(--violet-soft); box-shadow: 0 0 14px var(--violet-glow); }
+
+  .btn.primary{
+    background: var(--violet);
+    color: #0A0A0C;
+    font-weight: bold;
+  }
+  .btn.primary:hover{ background: #9d70ff; }
+
+  .btn.cyan{ border-color: var(--cyan); color: var(--cyan); }
+  .btn.cyan:hover{ background: var(--cyan-soft); box-shadow: 0 0 14px var(--cyan-glow); }
+
+  .btn.ghost{ border-color: var(--border); color: var(--text-dim); }
+  .btn.ghost:hover{ background: var(--panel-raised); box-shadow: none; color: var(--text); }
+
+  .btn.small{ padding: 6px 10px; font-size: 10px; }
+
+  .form-grid{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 4px;
+  }
+
+  .field{ display: flex; flex-direction: column; gap: 6px; }
+  .field.full{ grid-column: 1 / -1; }
+
+  .field label{
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .field input, .field select, .field textarea{
+    background: var(--void);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 10px;
+    border-radius: var(--radius);
+    outline: none;
+  }
+
+  .field input:focus, .field select:focus, .field textarea:focus{
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 2px var(--cyan-soft);
+  }
+
+  .field textarea{ resize: vertical; min-height: 64px; }
+
+  .diff-options{ display: flex; gap: 8px; }
+
+  .diff-chip{
+    flex: 1;
+    text-align: center;
+    padding: 9px 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--text-dim);
+    background: var(--void);
+    transition: all 0.15s;
+  }
+
+  .diff-chip[data-active="true"]{
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-soft);
+    box-shadow: 0 0 10px var(--gold-glow);
+  }
+
+  .form-actions{ margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* filters */
+  .filter-row{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
+  .filter-chip{
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--void);
+    cursor: pointer;
+  }
+
+  .filter-chip[data-active="true"]{
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: var(--cyan-soft);
+  }
+
+  /* quest log list */
+  .log-list{ display: flex; flex-direction: column; gap: 10px; }
+
+  .log-entry{
+    background: var(--void);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--violet);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .log-entry .le-main{ flex: 1; min-width: 220px; }
+
+  .log-entry .le-title{ font-size: 14px; color: var(--text); }
+
+  .log-entry .le-meta{
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    letter-spacing: 0.05em;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .log-entry .le-notes{
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    font-style: italic;
+    border-left: 2px solid var(--border);
+    padding-left: 8px;
+  }
+
+  .badge{
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    height: fit-content;
+  }
+
+  .badge.easy{ color: var(--cyan); border: 1px solid var(--cyan-soft); background: var(--cyan-soft); }
+  .badge.medium{ color: var(--violet); border: 1px solid var(--violet-soft); background: var(--violet-soft); }
+  .badge.hard{ color: var(--gold); border: 1px solid var(--gold-soft); background: var(--gold-soft); }
+
+  .le-side{ display: flex; align-items: center; gap: 8px; }
+
+  .le-remove{
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 2px 6px;
+  }
+  .le-remove:hover{ color: #f87171; }
+
+  .empty-state{
+    text-align: center;
+    padding: 30px 10px;
+    color: var(--text-faint);
+    font-size: 13px;
+  }
+
+  /* achievement gallery */
+  .ach-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .ach-card{
+    background: var(--void);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 12px;
+    text-align: center;
+    filter: grayscale(1);
+    opacity: 0.45;
+    transition: all 0.2s;
+  }
+
+  .ach-card.unlocked{
+    filter: none;
+    opacity: 1;
+    border-color: var(--gold);
+    box-shadow: 0 0 16px var(--gold-glow) inset, 0 0 10px var(--gold-glow);
+  }
+
+  .ach-card .ach-icon{ font-size: 26px; margin-bottom: 6px; }
+  .ach-card .ach-name{ font-size: 11px; letter-spacing: 0.05em; color: var(--text); }
+  .ach-card.unlocked .ach-name{ color: var(--gold); }
+  .ach-card .ach-desc{ font-size: 10px; color: var(--text-faint); margin-top: 4px; }
+
+  /* data footer: export / import / reset */
+  .data-row{ display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .data-actions{ display: flex; gap: 10px; flex-wrap: wrap; }
+  .hint{ font-size: 10px; color: var(--text-faint); }
+
+  /* toast */
+  #toast-stack{
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast{
+    background: var(--panel-raised);
+    border: 1px solid var(--gold);
+    box-shadow: 0 0 20px var(--gold-glow);
+    color: var(--text);
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    max-width: 280px;
+    animation: toast-in 0.25s ease-out, toast-out 0.4s ease-in 3.2s forwards;
+  }
+
+  @keyframes toast-in{ from{ transform: translateX(30px); opacity: 0; } to{ transform: translateX(0); opacity: 1; } }
+  @keyframes toast-out{ to{ transform: translateX(30px); opacity: 0; } }
+
+  footer{
+    text-align: center;
+    margin-top: 30px;
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.1em;
+  }
+
+  @media (max-width: 640px){
+    .stat-matrix{ grid-template-columns: 1fr; }
+    .form-grid{ grid-template-columns: 1fr; }
+    .profile-top{ align-items: center; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ============================================================
+       CHARACTER PROFILE HEADER
+       ============================================================ -->
+  <header class="profile">
+    <div class="profile-top">
+      <div class="player-id">
+        <p class="eyebrow">Character Sheet</p>
+        <h1 id="playerTitle">Side Quester</h1>
+        <p class="sub" id="playerSub">0 quests logged &middot; 0 XP earned</p>
+      </div>
+      <div class="level-badge">
+        <span class="lv-label">LVL</span>
+        <span class="lv-num" id="levelNum">1</span>
+      </div>
+    </div>
+
+    <div class="xp-block">
+      <div class="xp-labels">
+        <span id="xpIntoLevel">0 / 200 XP</span>
+        <span class="total" id="xpTotal">TOTAL: 0 XP</span>
+      </div>
+      <div class="xp-track">
+        <div class="xp-fill" id="xpFill"></div>
+      </div>
+    </div>
+
+    <div class="stat-matrix">
+      <div class="radar-holder">
+        <svg id="radarSvg" viewBox="0 0 220 220" width="200" height="200">
+          <!-- grid + polygon drawn by JS -->
+        </svg>
+      </div>
+      <div class="stat-list" id="statList"><!-- filled by JS --></div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       RANDOM QUEST GENERATOR
+       ============================================================ -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>&gt; Random Quest Generator</h2>
+    </div>
+    <div class="gen-row">
+      <button class="btn primary" id="genBtn">Roll a Side Quest</button>
+      <span class="hint">Draws from a pool of real-world micro-adventures.</span>
+    </div>
+    <div class="quest-card" id="genCard">
+      <div class="qc-tag" id="genTag">Exploration</div>
+      <div class="qc-text" id="genText">--</div>
+      <div class="form-actions" style="margin-top:12px;">
+        <button class="btn cyan small" id="useQuestBtn">Use This Quest &darr;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       MANUAL QUEST LOGGER
+       ============================================================ -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>&gt; Log a Completed Quest</h2>
+      <span class="streak-pill" id="streakPill">🔥 0 week streak</span>
+    </div>
+
+    <form id="questForm">
+      <div class="form-grid">
+        <div class="field full">
+          <label for="qTitle">Quest Title</label>
+          <input type="text" id="qTitle" placeholder="e.g. Tried the coffee shop on Rizal St." required>
+        </div>
+
+        <div class="field">
+          <label for="qStat">Category / Stat</label>
+          <select id="qStat">
+            <option value="strength">Physical (Strength)</option>
+            <option value="intelligence">Knowledge (Intelligence)</option>
+            <option value="creativity">Creativity</option>
+            <option value="exploration">Exploration</option>
+            <option value="social">Social</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Difficulty</label>
+          <div class="diff-options" id="diffOptions">
+            <div class="diff-chip" data-value="easy" data-active="true">Easy<br>+50 XP</div>
+            <div class="diff-chip" data-value="medium">Medium<br>+100 XP</div>
+            <div class="diff-chip" data-value="hard">Hard<br>+250 XP</div>
+          </div>
+        </div>
+
+        <div class="field full">
+          <label for="qNotes">Reflection / Photo Notes</label>
+          <textarea id="qNotes" placeholder="How did it go? Link a photo, jot a memory..."></textarea>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="reset" class="btn ghost">Clear</button>
+        <button type="submit" class="btn primary">Complete Quest</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ============================================================
+       QUEST LOG
+       ============================================================ -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>&gt; Quest Log</h2>
+    </div>
+    <div class="filter-row" id="filterRow">
+      <div class="filter-chip" data-value="all" data-active="true">All</div>
+      <div class="filter-chip" data-value="strength">Physical</div>
+      <div class="filter-chip" data-value="intelligence">Knowledge</div>
+      <div class="filter-chip" data-value="creativity">Creativity</div>
+      <div class="filter-chip" data-value="exploration">Exploration</div>
+      <div class="filter-chip" data-value="social">Social</div>
+    </div>
+    <div class="log-list" id="logList"><!-- filled by JS --></div>
+  </section>
+
+  <!-- ============================================================
+       ACHIEVEMENT GALLERY
+       ============================================================ -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>&gt; Achievement Gallery</h2>
+      <span class="hint" id="achCount">0 / 0 unlocked</span>
+    </div>
+    <div class="ach-grid" id="achGrid"><!-- filled by JS --></div>
+  </section>
+
+  <!-- ============================================================
+       DATA MANAGEMENT
+       ============================================================ -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>&gt; Save Data</h2>
+    </div>
+    <div class="data-row">
+      <span class="hint">Progress is stored in this browser only. Export a backup before clearing site data.</span>
+      <div class="data-actions">
+        <button class="btn cyan small" id="exportBtn">Export JSON</button>
+        <button class="btn ghost small" id="importBtn">Import JSON</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none;">
+        <button class="btn ghost small" id="resetBtn">Reset Progress</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>SIDE QUEST LOG &middot; RUNS ENTIRELY IN YOUR BROWSER</footer>
+</div>
+
+<div id="toast-stack"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     STATE / PERSISTENCE
+     ============================================================ */
+  var STORAGE_KEY = "sideQuestLog_v1";
+
+  var STAT_KEYS = ["strength", "intelligence", "creativity", "exploration", "social"];
+  var STAT_LABELS = {
+    strength: "Strength",
+    intelligence: "Intelligence",
+    creativity: "Creativity",
+    exploration: "Exploration",
+    social: "Social"
+  };
+  var STAT_SHORT = { strength: "Physical", intelligence: "Knowledge", creativity: "Creativity", exploration: "Exploration", social: "Social" };
+
+  var DIFFICULTY_XP = { easy: 50, medium: 100, hard: 250 };
+
+  function defaultState(){
+    return {
+      totalXP: 0,
+      stats: { strength: 0, intelligence: 0, creativity: 0, exploration: 0, social: 0 },
+      quests: [],
+      unlockedAchievements: [],
+      weeksLogged: []
+    };
+  }
+
+  var state = loadState();
+
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return defaultState();
+      var parsed = JSON.parse(raw);
+      // merge with defaults so older/partial saves don't break new fields
+      var base = defaultState();
+      return Object.assign(base, parsed, {
+        stats: Object.assign(base.stats, parsed.stats || {})
+      });
+    }catch(err){
+      console.warn("Could not read saved progress, starting fresh.", err);
+      return defaultState();
+    }
+  }
+
+  function saveState(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  /* ============================================================
+     LEVEL CURVE
+     Each level requires a bit more XP than the last, classic RPG feel.
+     Level 1 -> 2 costs 200 XP, then +100 XP per subsequent level.
+     ============================================================ */
+  function levelInfo(totalXP){
+    var level = 1;
+    var required = 200;
+    var remaining = totalXP;
+    while(remaining >= required){
+      remaining -= required;
+      level += 1;
+      required += 100;
+    }
+    return { level: level, xpIntoLevel: remaining, xpForNext: required };
+  }
+
+  /* ============================================================
+     ISO WEEK HELPERS (for the streak tracker)
+     ============================================================ */
+  function isoWeekKey(date){
+    var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    var dayNum = (d.getUTCDay() + 6) % 7; // Monday = 0
+    d.setUTCDate(d.getUTCDate() - dayNum + 3);
+    var firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    var weekNum = 1 + Math.round(((d - firstThursday) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+    return d.getUTCFullYear() + "-W" + String(weekNum).padStart(2, "0");
+  }
+
+  function weekOffsetKey(weeksAgo){
+    var d = new Date();
+    d.setDate(d.getDate() - weeksAgo * 7);
+    return isoWeekKey(d);
+  }
+
+  function currentStreak(){
+    var i = 0;
+    while(state.weeksLogged.indexOf(weekOffsetKey(i)) !== -1){
+      i += 1;
+    }
+    return i;
+  }
+
+  /* ============================================================
+     ACHIEVEMENT DEFINITIONS
+     ============================================================ */
+  var ACHIEVEMENTS = [
+    { id: "first_quest", icon: "🎯", name: "First Steps", desc: "Log your first side quest.", test: function(){ return state.quests.length >= 1; } },
+    { id: "five_quests", icon: "⚡", name: "Getting Started", desc: "Log 5 side quests.", test: function(){ return state.quests.length >= 5; } },
+    { id: "fifteen_quests", icon: "🌐", name: "Quest Veteran", desc: "Log 15 side quests.", test: function(){ return state.quests.length >= 15; } },
+    { id: "thirty_quests", icon: "🏆", name: "Quest Master", desc: "Log 30 side quests.", test: function(){ return state.quests.length >= 30; } },
+    { id: "hard_mode", icon: "💀", name: "Hard Mode", desc: "Complete a Hard difficulty quest.", test: function(){ return state.quests.some(function(q){ return q.difficulty === "hard"; }); } },
+    { id: "level_5", icon: "🧬", name: "Level 5", desc: "Reach character level 5.", test: function(){ return levelInfo(state.totalXP).level >= 5; } },
+    { id: "level_10", icon: "👑", name: "Level 10", desc: "Reach character level 10.", test: function(){ return levelInfo(state.totalXP).level >= 10; } },
+    { id: "well_rounded", icon: "🧭", name: "Well Rounded", desc: "Earn points in all five stats.", test: function(){ return STAT_KEYS.every(function(k){ return state.stats[k] > 0; }); } },
+    { id: "brainiac", icon: "🧠", name: "Brainiac", desc: "Reach 100 Intelligence.", test: function(){ return state.stats.intelligence >= 100; } },
+    { id: "wanderer", icon: "🗺️", name: "Wanderer", desc: "Reach 100 Exploration.", test: function(){ return state.stats.exploration >= 100; } },
+    { id: "social_butterfly", icon: "🤝", name: "Social Butterfly", desc: "Reach 100 Social.", test: function(){ return state.stats.social >= 100; } },
+    { id: "streak_4", icon: "📅", name: "Streak Keeper", desc: "Log a quest 4 weeks running.", test: function(){ return currentStreak() >= 4; } },
+    { id: "streak_8", icon: "🔥", name: "Streak Legend", desc: "Log a quest 8 weeks running.", test: function(){ return currentStreak() >= 8; } }
+  ];
+
+  /* ============================================================
+     RANDOM QUEST POOL
+     ============================================================ */
+  var QUEST_POOL = [
+    { text: "Take a completely different route home and notice five new things.", stat: "strength" },
+    { text: "Do a 15-minute bodyweight workout, no equipment allowed.", stat: "strength" },
+    { text: "Walk or bike somewhere you'd normally drive to.", stat: "strength" },
+    { text: "Try a physical activity you've never done before.", stat: "strength" },
+    { text: "Skip the elevator. Take the stairs for a full day.", stat: "strength" },
+    { text: "Learn 10 words in a language you don't speak.", stat: "intelligence" },
+    { text: "Read one Wikipedia article on a topic you know nothing about, start to finish.", stat: "intelligence" },
+    { text: "Watch a documentary outside your usual interests.", stat: "intelligence" },
+    { text: "Teach yourself one new keyboard shortcut and use it five times today.", stat: "intelligence" },
+    { text: "Explain something you understand well to someone else, in plain language.", stat: "intelligence" },
+    { text: "Cook a recipe from a country you've never visited.", stat: "creativity" },
+    { text: "Sketch or doodle for 20 minutes without judging the result.", stat: "creativity" },
+    { text: "Rearrange a room to see it from a completely new angle.", stat: "creativity" },
+    { text: "Write a short poem about your day, no matter how rough a draft.", stat: "creativity" },
+    { text: "Take five photos that tell a tiny story.", stat: "creativity" },
+    { text: "Visit a coffee shop, park, or store you've never been to.", stat: "exploration" },
+    { text: "Get on a bus or train and get off at a stop you don't recognize.", stat: "exploration" },
+    { text: "Find a hidden or overlooked spot in your own city.", stat: "exploration" },
+    { text: "Eat at a restaurant serving a cuisine you've never tried.", stat: "exploration" },
+    { text: "Spend an hour somewhere with no phone, just observing.", stat: "exploration" },
+    { text: "Strike up a conversation with someone you've never spoken to.", stat: "social" },
+    { text: "Call a friend you haven't talked to in months.", stat: "social" },
+    { text: "Give a genuine compliment to a stranger.", stat: "social" },
+    { text: "Join a group activity or meetup outside your comfort zone.", stat: "social" },
+    { text: "Ask someone older than you for one piece of life advice.", stat: "social" }
+  ];
+
+  var lastRolledQuest = null;
+
+  /* ============================================================
+     DOM REFERENCES
+     ============================================================ */
+  var el = {
+    playerSub: document.getElementById("playerSub"),
+    levelNum: document.getElementById("levelNum"),
+    xpIntoLevel: document.getElementById("xpIntoLevel"),
+    xpTotal: document.getElementById("xpTotal"),
+    xpFill: document.getElementById("xpFill"),
+    statList: document.getElementById("statList"),
+    radarSvg: document.getElementById("radarSvg"),
+    genBtn: document.getElementById("genBtn"),
+    genCard: document.getElementById("genCard"),
+    genTag: document.getElementById("genTag"),
+    genText: document.getElementById("genText"),
+    useQuestBtn: document.getElementById("useQuestBtn"),
+    questForm: document.getElementById("questForm"),
+    qTitle: document.getElementById("qTitle"),
+    qStat: document.getElementById("qStat"),
+    qNotes: document.getElementById("qNotes"),
+    diffOptions: document.getElementById("diffOptions"),
+    streakPill: document.getElementById("streakPill"),
+    filterRow: document.getElementById("filterRow"),
+    logList: document.getElementById("logList"),
+    achGrid: document.getElementById("achGrid"),
+    achCount: document.getElementById("achCount"),
+    exportBtn: document.getElementById("exportBtn"),
+    importBtn: document.getElementById("importBtn"),
+    importFile: document.getElementById("importFile"),
+    resetBtn: document.getElementById("resetBtn"),
+    toastStack: document.getElementById("toast-stack")
+  };
+
+  var activeDifficulty = "easy";
+  var activeFilter = "all";
+
+  /* ============================================================
+     RENDERING
+     ============================================================ */
+  function render(){
+    renderHeader();
+    renderStreak();
+    renderLog();
+    renderAchievements();
+  }
+
+  function renderHeader(){
+    var info = levelInfo(state.totalXP);
+    el.levelNum.textContent = info.level;
+    el.xpIntoLevel.textContent = info.xpIntoLevel + " / " + info.xpForNext + " XP";
+    el.xpTotal.textContent = "TOTAL: " + state.totalXP + " XP";
+    var pct = Math.min(100, Math.round((info.xpIntoLevel / info.xpForNext) * 100));
+    el.xpFill.style.width = pct + "%";
+    el.playerSub.textContent = state.quests.length + " quest" + (state.quests.length === 1 ? "" : "s") + " logged \u00B7 " + state.totalXP + " XP earned";
+
+    renderStatList();
+    renderRadar();
+  }
+
+  function renderStatList(){
+    var maxStat = Math.max(20, Math.max.apply(null, STAT_KEYS.map(function(k){ return state.stats[k]; })));
+    el.statList.innerHTML = STAT_KEYS.map(function(k){
+      var val = state.stats[k];
+      var pct = Math.min(100, Math.round((val / maxStat) * 100));
+      return '<div class="stat-row">' +
+        '<div class="stat-name">' + STAT_LABELS[k] + ' <b>' + val + '</b></div>' +
+        '<div class="stat-bar"><i style="width:' + pct + '%"></i></div>' +
+        '</div>';
+    }).join("");
+  }
+
+  function renderRadar(){
+    var size = 220, center = size / 2, radius = 85;
+    var axes = STAT_KEYS.length;
+    var maxVal = Math.max(50, Math.max.apply(null, STAT_KEYS.map(function(k){ return state.stats[k]; })));
+
+    function pointFor(index, valueRatio){
+      var angle = (Math.PI * 2 * index) / axes - Math.PI / 2;
+      return [
+        center + Math.cos(angle) * radius * valueRatio,
+        center + Math.sin(angle) * radius * valueRatio
+      ];
+    }
+
+    var svgParts = [];
+
+    // background grid rings
+    [0.25, 0.5, 0.75, 1].forEach(function(ratio){
+      var pts = [];
+      for(var i = 0; i < axes; i++){
+        var p = pointFor(i, ratio);
+        pts.push(p[0].toFixed(1) + "," + p[1].toFixed(1));
+      }
+      svgParts.push('<polygon points="' + pts.join(" ") + '" fill="none" stroke="#232330" stroke-width="1"/>');
+    });
+
+    // axis lines + labels
+    STAT_KEYS.forEach(function(k, i){
+      var p = pointFor(i, 1);
+      svgParts.push('<line x1="' + center + '" y1="' + center + '" x2="' + p[0].toFixed(1) + '" y2="' + p[1].toFixed(1) + '" stroke="#232330" stroke-width="1"/>');
+      var labelPoint = pointFor(i, 1.22);
+      svgParts.push('<text x="' + labelPoint[0].toFixed(1) + '" y="' + labelPoint[1].toFixed(1) + '" fill="#71717A" font-size="9" font-family="Share Tech Mono, monospace" text-anchor="middle" dominant-baseline="middle">' + STAT_SHORT[k].toUpperCase() + '</text>');
+    });
+
+    // data polygon
+    var dataPts = STAT_KEYS.map(function(k, i){
+      var ratio = Math.min(1, state.stats[k] / maxVal);
+      var p = pointFor(i, ratio);
+      return p[0].toFixed(1) + "," + p[1].toFixed(1);
+    });
+    svgParts.push('<polygon points="' + dataPts.join(" ") + '" fill="rgba(139,92,246,0.28)" stroke="#8B5CF6" stroke-width="2" style="filter:drop-shadow(0 0 6px rgba(139,92,246,0.6));"/>');
+
+    // data vertices
+    STAT_KEYS.forEach(function(k, i){
+      var ratio = Math.min(1, state.stats[k] / maxVal);
+      var p = pointFor(i, ratio);
+      svgParts.push('<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3" fill="#06B6D4"/>');
+    });
+
+    el.radarSvg.innerHTML = svgParts.join("");
+  }
+
+  function renderStreak(){
+    var streak = currentStreak();
+    el.streakPill.textContent = "\uD83D\uDD25 " + streak + " week streak";
+  }
+
+  function renderLog(){
+    var quests = state.quests.slice().sort(function(a, b){ return b.timestamp - a.timestamp; });
+    if(activeFilter !== "all"){
+      quests = quests.filter(function(q){ return q.statKey === activeFilter; });
+    }
+
+    if(quests.length === 0){
+      el.logList.innerHTML = '<div class="empty-state">No quests logged yet' + (activeFilter !== "all" ? " in this category" : "") + '. Time to go touch grass.</div>';
+      return;
+    }
+
+    el.logList.innerHTML = quests.map(function(q){
+      var date = new Date(q.timestamp);
+      var dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+      return '<div class="log-entry" data-id="' + q.id + '">' +
+        '<div class="le-main">' +
+          '<div class="le-title">' + escapeHtml(q.title) + '</div>' +
+          '<div class="le-meta">' +
+            '<span>' + dateStr + '</span>' +
+            '<span>' + STAT_SHORT[q.statKey] + '</span>' +
+            '<span>+' + q.xp + ' XP</span>' +
+          '</div>' +
+          (q.notes ? '<div class="le-notes">' + escapeHtml(q.notes) + '</div>' : '') +
+        '</div>' +
+        '<div class="le-side">' +
+          '<span class="badge ' + q.difficulty + '">' + q.difficulty + '</span>' +
+          '<button class="le-remove" title="Remove entry" data-remove="' + q.id + '">&times;</button>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderAchievements(){
+    var unlockedCount = 0;
+    el.achGrid.innerHTML = ACHIEVEMENTS.map(function(a){
+      var unlocked = state.unlockedAchievements.indexOf(a.id) !== -1;
+      if(unlocked) unlockedCount += 1;
+      return '<div class="ach-card' + (unlocked ? ' unlocked' : '') + '">' +
+        '<div class="ach-icon">' + a.icon + '</div>' +
+        '<div class="ach-name">' + a.name + '</div>' +
+        '<div class="ach-desc">' + (unlocked ? a.desc : "???") + '</div>' +
+      '</div>';
+    }).join("");
+    el.achCount.textContent = unlockedCount + " / " + ACHIEVEMENTS.length + " unlocked";
+  }
+
+  function escapeHtml(str){
+    var div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  /* ============================================================
+     TOASTS
+     ============================================================ */
+  function showToast(message){
+    var t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = message;
+    el.toastStack.appendChild(t);
+    setTimeout(function(){
+      if(t.parentNode) t.parentNode.removeChild(t);
+    }, 3700);
+  }
+
+  /* ============================================================
+     ACHIEVEMENT CHECKING
+     ============================================================ */
+  function checkAchievements(){
+    ACHIEVEMENTS.forEach(function(a){
+      var already = state.unlockedAchievements.indexOf(a.id) !== -1;
+      if(!already && a.test()){
+        state.unlockedAchievements.push(a.id);
+        showToast("\uD83C\uDFC6 Achievement unlocked: " + a.name);
+      }
+    });
+  }
+
+  /* ============================================================
+     QUEST GENERATOR
+     ============================================================ */
+  el.genBtn.addEventListener("click", function(){
+    var pick = QUEST_POOL[Math.floor(Math.random() * QUEST_POOL.length)];
+    lastRolledQuest = pick;
+    el.genTag.textContent = STAT_SHORT[pick.stat];
+    el.genText.textContent = pick.text;
+    el.genCard.classList.add("show");
+  });
+
+  el.useQuestBtn.addEventListener("click", function(){
+    if(!lastRolledQuest) return;
+    el.qTitle.value = lastRolledQuest.text;
+    el.qStat.value = lastRolledQuest.stat;
+    el.qTitle.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.qTitle.focus();
+  });
+
+  /* ============================================================
+     DIFFICULTY CHIPS
+     ============================================================ */
+  el.diffOptions.addEventListener("click", function(e){
+    var chip = e.target.closest(".diff-chip");
+    if(!chip) return;
+    activeDifficulty = chip.getAttribute("data-value");
+    Array.prototype.forEach.call(el.diffOptions.children, function(c){
+      c.setAttribute("data-active", c === chip ? "true" : "false");
+    });
+  });
+
+  /* ============================================================
+     QUEST LOGGING
+     ============================================================ */
+  el.questForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    var title = el.qTitle.value.trim();
+    if(!title) return;
+
+    var statKey = el.qStat.value;
+    var difficulty = activeDifficulty;
+    var xp = DIFFICULTY_XP[difficulty];
+    var notes = el.qNotes.value.trim();
+
+    var quest = {
+      id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ("q_" + Date.now() + "_" + Math.random().toString(16).slice(2)),
+      title: title,
+      statKey: statKey,
+      difficulty: difficulty,
+      xp: xp,
+      notes: notes,
+      timestamp: Date.now()
+    };
+
+    state.quests.push(quest);
+    state.totalXP += xp;
+    state.stats[statKey] += Math.round(xp / 10);
+
+    var wk = isoWeekKey(new Date());
+    if(state.weeksLogged.indexOf(wk) === -1){
+      state.weeksLogged.push(wk);
+    }
+
+    checkAchievements();
+    saveState();
+    render();
+
+    showToast("Quest complete: +" + xp + " XP");
+
+    el.questForm.reset();
+    activeDifficulty = "easy";
+    Array.prototype.forEach.call(el.diffOptions.children, function(c, i){
+      c.setAttribute("data-active", i === 0 ? "true" : "false");
+    });
+    el.genCard.classList.remove("show");
+  });
+
+  /* ============================================================
+     LOG ENTRY REMOVAL
+     ============================================================ */
+  el.logList.addEventListener("click", function(e){
+    var btn = e.target.closest("[data-remove]");
+    if(!btn) return;
+    var id = btn.getAttribute("data-remove");
+    var quest = state.quests.find(function(q){ return q.id === id; });
+    if(!quest) return;
+    if(!confirm('Remove "' + quest.title + '" from your quest log? XP already earned stays banked.')) return;
+    state.quests = state.quests.filter(function(q){ return q.id !== id; });
+    saveState();
+    render();
+  });
+
+  /* ============================================================
+     FILTERS
+     ============================================================ */
+  el.filterRow.addEventListener("click", function(e){
+    var chip = e.target.closest(".filter-chip");
+    if(!chip) return;
+    activeFilter = chip.getAttribute("data-value");
+    Array.prototype.forEach.call(el.filterRow.children, function(c){
+      c.setAttribute("data-active", c === chip ? "true" : "false");
+    });
+    renderLog();
+  });
+
+  /* ============================================================
+     EXPORT / IMPORT / RESET
+     ============================================================ */
+  el.exportBtn.addEventListener("click", function(){
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    var stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = "side-quest-log-" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Backup exported.");
+  });
+
+  el.importBtn.addEventListener("click", function(){
+    el.importFile.click();
+  });
+
+  el.importFile.addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var parsed = JSON.parse(reader.result);
+        if(typeof parsed.totalXP !== "number" || !Array.isArray(parsed.quests)){
+          throw new Error("File does not match the expected save format.");
+        }
+        var base = defaultState();
+        state = Object.assign(base, parsed, {
+          stats: Object.assign(base.stats, parsed.stats || {})
+        });
+        saveState();
+        render();
+        showToast("Save data imported.");
+      }catch(err){
+        alert("Could not import that file: " + err.message);
+      }
+      el.importFile.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  el.resetBtn.addEventListener("click", function(){
+    if(!confirm("This wipes all quests, XP, and achievements from this browser. Export a backup first if you want to keep it. Continue?")) return;
+    state = defaultState();
+    saveState();
+    render();
+    showToast("Progress reset.");
+  });
+
+  /* ============================================================
+     INIT
+     ============================================================ */
+  render();
+})();
+</script>
+</body>
+</html>
