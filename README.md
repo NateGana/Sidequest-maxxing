@@ -1,3 +1,5 @@
 # Sidequest-maxxing
 
--On progress
+live link: https://nategana.github.io/Sidequest-maxxing/
+
+on progress
